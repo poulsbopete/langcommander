@@ -135,14 +135,36 @@ def main():
     api_key_id = os.getenv("ELASTICSEARCH_API_KEY_ID")
     api_key = os.getenv("ELASTICSEARCH_API_KEY")
 
+    # Ensure required credentials are set
     if not all([cloud_id, api_key_id, api_key]):
         print("Please set ELASTICSEARCH_CLOUD_ID, ELASTICSEARCH_API_KEY_ID, and ELASTICSEARCH_API_KEY in .env")
         return
+    # Check for placeholder values
+    placeholders = [cloud_id, api_key_id, api_key]
+    if any(val.strip().startswith("your_") for val in placeholders):
+        print("Please update .env with valid Elasticsearch credentials instead of placeholders.")
+        return
 
-    es = Elasticsearch(
-        cloud_id=cloud_id,
-        api_key=(api_key_id, api_key)
-    )
+    # Initialize Elasticsearch client, support both Cloud ID and direct URL
+    try:
+        if cloud_id.startswith("http://") or cloud_id.startswith("https://"):
+            # Treat cloud_id as the Elasticsearch host URL
+            es = Elasticsearch(
+                hosts=[cloud_id],
+                api_key=(api_key_id, api_key)
+            )
+        else:
+            # Treat cloud_id as an Elastic Cloud ID
+            es = Elasticsearch(
+                cloud_id=cloud_id,
+                api_key=(api_key_id, api_key)
+            )
+    except ValueError as e:
+        print(f"Error initializing Elasticsearch client: {e}")
+        return
+    except Exception as e:
+        print(f"Unexpected error creating Elasticsearch client: {e}")
+        return
 
     graph = ElasticsearchGraph(es)
     manager = IncidentManager(graph)

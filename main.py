@@ -132,15 +132,14 @@ def main():
     load_dotenv()
 
     cloud_id = os.getenv("ELASTICSEARCH_CLOUD_ID")
-    api_key_id = os.getenv("ELASTICSEARCH_API_KEY_ID")
     api_key = os.getenv("ELASTICSEARCH_API_KEY")
 
     # Ensure required credentials are set
-    if not all([cloud_id, api_key_id, api_key]):
-        print("Please set ELASTICSEARCH_CLOUD_ID, ELASTICSEARCH_API_KEY_ID, and ELASTICSEARCH_API_KEY in .env")
+    if not all([cloud_id, api_key]):
+        print("Please set ELASTICSEARCH_CLOUD_ID and ELASTICSEARCH_API_KEY in .env")
         return
     # Check for placeholder values
-    placeholders = [cloud_id, api_key_id, api_key]
+    placeholders = [cloud_id, api_key]
     if any(val.strip().startswith("your_") for val in placeholders):
         print("Please update .env with valid Elasticsearch credentials instead of placeholders.")
         return
@@ -151,13 +150,13 @@ def main():
             # Treat cloud_id as the Elasticsearch host URL
             es = Elasticsearch(
                 hosts=[cloud_id],
-                api_key=(api_key_id, api_key)
+                api_key=api_key
             )
         else:
             # Treat cloud_id as an Elastic Cloud ID
             es = Elasticsearch(
                 cloud_id=cloud_id,
-                api_key=(api_key_id, api_key)
+                api_key=api_key
             )
     except ValueError as e:
         print(f"Error initializing Elasticsearch client: {e}")

@@ -16,7 +16,6 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    ```env
    # Either your Elastic Cloud ID (recommended) or the full HTTPS URL of your Elasticsearch endpoint
    ELASTICSEARCH_CLOUD_ID=https://your-domain.es.us-east-1.aws.elastic.cloud:443
-   ELASTICSEARCH_API_KEY_ID=your_api_key_id
    ELASTICSEARCH_API_KEY=your_api_key
    ```
 4. Run the CLI:

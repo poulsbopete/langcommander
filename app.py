@@ -1,0 +1,94 @@
+import os
+from flask import Flask, render_template, request, redirect, url_for, flash
+from dotenv import load_dotenv
+from elasticsearch import Elasticsearch
+from main import ElasticsearchGraph, IncidentManager
+
+# Load environment variables
+load_dotenv()
+
+app = Flask(__name__)
+# Secret key for session management (flash messages)
+app.secret_key = os.getenv("SECRET_KEY", "devkey")
+
+# Read Elasticsearch credentials
+cloud_id = os.getenv("ELASTICSEARCH_CLOUD_ID")
+api_key = os.getenv("ELASTICSEARCH_API_KEY")
+if not cloud_id or not api_key:
+    raise RuntimeError("Please set ELASTICSEARCH_CLOUD_ID and ELASTICSEARCH_API_KEY in .env")
+
+# Initialize Elasticsearch client (support URL or Cloud ID)
+if cloud_id.startswith("http://") or cloud_id.startswith("https://"):
+    es = Elasticsearch(hosts=[cloud_id], api_key=api_key)
+else:
+    es = Elasticsearch(cloud_id=cloud_id, api_key=api_key)
+
+# Initialize graph and incident manager
+graph = ElasticsearchGraph(es)
+manager = IncidentManager(graph)
+
+@app.route("/")
+def index():
+    incidents = manager.list_incidents(size=100)
+    return render_template("list_incidents.html", incidents=incidents)
+
+@app.route("/incidents/new", methods=["GET", "POST"])
+def new_incident():
+    if request.method == "POST":
+        incident_id = request.form.get("id", "").strip()
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        priority = request.form.get("priority")
+        assigned_to = request.form.get("assigned_to") or None
+
+        if not incident_id or not title or not description:
+            flash("ID, Title, and Description are required.", "danger")
+            return render_template("incident_form.html", incident=request.form, form_action=url_for("new_incident"))
+
+        if manager.get_incident(incident_id):
+            flash(f"Incident {incident_id} already exists.", "danger")
+            return render_template("incident_form.html", incident=request.form, form_action=url_for("new_incident"))
+
+        manager.create_incident(incident_id, title, description, priority, assigned_to)
+        flash(f"Incident {incident_id} created.", "success")
+        return redirect(url_for("view_incident", incident_id=incident_id))
+
+    return render_template("incident_form.html", incident={}, form_action=url_for("new_incident"))
+
+@app.route("/incidents/<incident_id>")
+def view_incident(incident_id):
+    inc = manager.get_incident(incident_id)
+    if not inc:
+        flash(f"Incident {incident_id} not found.", "warning")
+        return redirect(url_for("index"))
+    return render_template("incident_detail.html", incident=inc)
+
+@app.route("/incidents/<incident_id>/edit", methods=["GET", "POST"])
+def edit_incident(incident_id):
+    inc = manager.get_incident(incident_id)
+    if not inc:
+        flash(f"Incident {incident_id} not found.", "warning")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        status = request.form.get("status")
+        priority = request.form.get("priority")
+        assigned_to = request.form.get("assigned_to") or None
+
+        manager.update_incident(
+            incident_id,
+            title=title,
+            description=description,
+            status=status,
+            priority=priority,
+            assigned_to=assigned_to,
+        )
+        flash(f"Incident {incident_id} updated.", "success")
+        return redirect(url_for("view_incident", incident_id=incident_id))
+
+    return render_template("incident_form.html", incident=inc, form_action=url_for("edit_incident", incident_id=incident_id))
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)

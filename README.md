@@ -41,3 +41,20 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
   ```bash
   python main.py list [-n <NUMBER>]
   ```
+  
+## Web UI
+
+In addition to the CLI, you can run a Flask-based web UI to manage incidents via your browser.
+
+1. Ensure your `.env` is populated as described above.
+2. Start the Flask app:
+   ```bash
+   # Option 1: using flask CLI
+   export FLASK_APP=app.py
+   export FLASK_ENV=development
+   flask run
+
+   # Option 2: directly
+   python app.py
+   ```
+3. Open your browser at http://localhost:5000 to view, create, and edit incidents.

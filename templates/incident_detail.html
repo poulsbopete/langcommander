@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Incident {{ incident.node_id }}</h1>
+<table class="table">
+  <tr><th>Title</th><td>{{ incident.title }}</td></tr>
+  <tr><th>Description</th><td>{{ incident.description }}</td></tr>
+  <tr><th>Status</th><td>{{ incident.status }}</td></tr>
+  <tr><th>Priority</th><td>{{ incident.priority }}</td></tr>
+  <tr><th>Assigned To</th><td>{{ incident.assigned_to or '' }}</td></tr>
+  <tr><th>Created At</th><td>{{ incident.created_at }}</td></tr>
+  <tr><th>Updated At</th><td>{{ incident.updated_at }}</td></tr>
+</table>
+<a href="{{ url_for('edit_incident', incident_id=incident.node_id) }}" class="btn btn-primary">Edit</a>
+<a href="{{ url_for('index') }}" class="btn btn-secondary">Back</a>
+{% endblock %}

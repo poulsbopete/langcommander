@@ -91,4 +91,8 @@ def edit_incident(incident_id):
     return render_template("incident_form.html", incident=inc, form_action=url_for("edit_incident", incident_id=incident_id))
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Allow overriding host and port via environment variables
+    port = int(os.getenv("PORT", "5000"))
+    host = os.getenv("HOST", "0.0.0.0")
+    debug = os.getenv("FLASK_ENV", "").lower() == "development"
+    app.run(debug=debug, host=host, port=port)

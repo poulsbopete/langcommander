@@ -58,3 +58,10 @@ In addition to the CLI, you can run a Flask-based web UI to manage incidents via
    python app.py
    ```
 3. Open your browser at http://localhost:5000 to view, create, and edit incidents.
+   - If port 5000 is in use, set a different port when starting:
+     ```bash
+     PORT=5001 python app.py
+     # or with flask CLI:
+     export FLASK_RUN_PORT=5001
+     flask run
+     ```

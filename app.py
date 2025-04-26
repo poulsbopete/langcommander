@@ -23,8 +23,10 @@ if cloud_id.startswith("http://") or cloud_id.startswith("https://"):
 else:
     es = Elasticsearch(cloud_id=cloud_id, api_key=api_key)
 
-# Initialize graph and incident manager
-graph = ElasticsearchGraph(es)
+## Initialize graph and incident manager
+# Use a dedicated index for incidents (default: 'incidents')
+incident_index = os.getenv("ELASTICSEARCH_INDEX", "incidents")
+graph = ElasticsearchGraph(es, node_index=incident_index)
 manager = IncidentManager(graph)
 
 @app.route("/")

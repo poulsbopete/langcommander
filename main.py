@@ -165,7 +165,9 @@ def main():
         print(f"Unexpected error creating Elasticsearch client: {e}")
         return
 
-    graph = ElasticsearchGraph(es)
+    # Determine Elasticsearch index for incidents
+    incident_index = os.getenv("ELASTICSEARCH_INDEX", "incidents")
+    graph = ElasticsearchGraph(es, node_index=incident_index)
     manager = IncidentManager(graph)
 
     # Dispatch CLI commands

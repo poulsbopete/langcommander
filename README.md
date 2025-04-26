@@ -17,6 +17,8 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    # Either your Elastic Cloud ID (recommended) or the full HTTPS URL of your Elasticsearch endpoint
    ELASTICSEARCH_CLOUD_ID=https://your-domain.es.us-east-1.aws.elastic.cloud:443
    ELASTICSEARCH_API_KEY=your_api_key
+   # (Optional) Elasticsearch index name for incidents (default: 'incidents')
+   ELASTICSEARCH_INDEX=incidents
    ```
 4. Run the CLI:
    ```bash
@@ -46,8 +48,14 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
 
 In addition to the CLI, you can run a Flask-based web UI to manage incidents via your browser.
 
-1. Ensure your `.env` is populated as described above.
-2. Start the Flask app:
+1. Activate your Python virtual environment (if not already):
+   ```bash
+   source venv/bin/activate
+   ```
+
+2. Ensure your `.env` is populated as described above.
+
+3. Start the Flask app:
    ```bash
    # Option 1: using flask CLI
    export FLASK_APP=app.py
@@ -57,7 +65,8 @@ In addition to the CLI, you can run a Flask-based web UI to manage incidents via
    # Option 2: directly
    python app.py
    ```
-3. Open your browser at http://localhost:5000 to view, create, and edit incidents.
+
+4. Open your browser at http://localhost:5000 to view, create, and edit incidents.
    - If port 5000 is in use, set a different port when starting:
      ```bash
      PORT=5001 python app.py

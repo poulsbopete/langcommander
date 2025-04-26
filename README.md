@@ -18,7 +18,26 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    ELASTICSEARCH_API_KEY_ID=your_api_key_id
    ELASTICSEARCH_API_KEY=your_api_key
    ```
-4. Run the app:
+4. Run the CLI:
    ```bash
-   python main.py
+   python main.py [command] [options]
    ```
+
+## Commands
+
+- create: Create a new incident.
+  ```bash
+  python main.py create -i <ID> -t <TITLE> -d <DESCRIPTION> -p <PRIORITY> [-a <ASSIGNED_TO>]
+  ```
+- view: View incident details by ID.
+  ```bash
+  python main.py view <ID>
+  ```
+- update: Update fields of an existing incident.
+  ```bash
+  python main.py update <ID> [-t <TITLE>] [-d <DESCRIPTION>] [-s <STATUS>] [-p <PRIORITY>] [-a <ASSIGNED_TO>]
+  ```
+- list: List recent incidents.
+  ```bash
+  python main.py list [-n <NUMBER>]
+  ```

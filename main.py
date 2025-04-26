@@ -1,6 +1,9 @@
 import os
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
+import argparse
+import json
+from datetime import datetime
 
 class ElasticsearchGraph:
     def __init__(self, es_client, node_index="nodes", edge_index="edges"):
@@ -37,8 +40,95 @@ class ElasticsearchGraph:
             return self.es.get(index=self.edge_index, id=edge_id)["_source"]
         except Exception:
             return None
+    
+    def update_node(self, node_id, properties):
+        """
+        Partially update a node's properties by ID.
+        """
+        self.es.update(index=self.node_index, id=node_id, doc=properties)
+
+    def search_nodes(self, query=None, size=10):
+        """
+        Search nodes with an optional Elasticsearch query.
+        """
+        q = query if query is not None else {"match_all": {}}
+        resp = self.es.search(index=self.node_index, query=q, size=size)
+        return [hit["_source"] for hit in resp.get("hits", {}).get("hits", [])]
+
+class IncidentManager:
+    """Manager for handling incident lifecycle using ElasticsearchGraph."""
+    def __init__(self, graph):
+        self.graph = graph
+
+    def create_incident(self, incident_id, title, description, priority, assigned_to=None):
+        props = {
+            "type": "incident",
+            "title": title,
+            "description": description,
+            "status": "New",
+            "priority": priority,
+            "assigned_to": assigned_to,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+        self.graph.add_node(incident_id, props)
+
+    def get_incident(self, incident_id):
+        incident = self.graph.get_node(incident_id)
+        if incident and incident.get("type") == "incident":
+            return incident
+        return None
+
+    def update_incident(self, incident_id, title=None, description=None, status=None, priority=None, assigned_to=None):
+        fields = {}
+        for field, value in [("title", title), ("description", description), ("status", status), ("priority", priority), ("assigned_to", assigned_to)]:
+            if value is not None:
+                fields[field] = value
+        if not fields:
+            return False
+        fields["updated_at"] = datetime.utcnow().isoformat()
+        self.graph.update_node(incident_id, fields)
+        return True
+
+    def list_incidents(self, size=10):
+        # List all incidents ordered by created_at (not implemented sort yet)
+        query = {"term": {"type": {"value": "incident"}}}
+        return self.graph.search_nodes(query=query, size=size)
+
+def _parse_args():
+    parser = argparse.ArgumentParser(prog="incident_manager", description="Incident management CLI")
+    sub = parser.add_subparsers(dest="command")
+
+    # create
+    pc = sub.add_parser("create", help="Create a new incident")
+    pc.add_argument("-i", "--id", required=True, help="Incident ID")
+    pc.add_argument("-t", "--title", required=True, help="Incident title")
+    pc.add_argument("-d", "--description", required=True, help="Incident description")
+    pc.add_argument("-p", "--priority", required=True, choices=["Low","Medium","High","Critical"], help="Priority level")
+    pc.add_argument("-a", "--assigned_to", help="User assigned to")
+
+    # view
+    pv = sub.add_parser("view", help="View an incident details")
+    pv.add_argument("id", help="Incident ID to view")
+
+    # update
+    pu = sub.add_parser("update", help="Update fields of an incident")
+    pu.add_argument("id", help="Incident ID to update")
+    pu.add_argument("-t", "--title", help="New title")
+    pu.add_argument("-d", "--description", help="New description")
+    pu.add_argument("-s", "--status", choices=["New","In Progress","Resolved","Closed"], help="New status")
+    pu.add_argument("-p", "--priority", choices=["Low","Medium","High","Critical"], help="Priority level")
+    pu.add_argument("-a", "--assigned_to", help="Reassign to user")
+
+    # list
+    pl = sub.add_parser("list", help="List incidents")
+    pl.add_argument("-n", "--number", type=int, default=10, help="Number of incidents to list")
+
+    return parser.parse_args()
 
 def main():
+    # parse CLI arguments early (handles -h/--help before ES setup)
+    args = _parse_args()
     load_dotenv()
 
     cloud_id = os.getenv("ELASTICSEARCH_CLOUD_ID")
@@ -55,17 +145,39 @@ def main():
     )
 
     graph = ElasticsearchGraph(es)
+    manager = IncidentManager(graph)
 
-    # Example usage
-    graph.add_node("1", {"name": "Node 1", "description": "This is node 1"})
-    graph.add_node("2", {"name": "Node 2", "description": "This is node 2"})
-    graph.add_edge("e1", "1", "2", {"relation": "knows"})
-
-    node = graph.get_node("1")
-    edge = graph.get_edge("e1")
-
-    print("Node:", node)
-    print("Edge:", edge)
+    # Dispatch CLI commands
+    if args.command == "create":
+        manager.create_incident(
+            args.id, args.title, args.description, args.priority, args.assigned_to
+        )
+        print(f"Incident {args.id} created.")
+    elif args.command == "view":
+        incident = manager.get_incident(args.id)
+        if incident:
+            print(json.dumps(incident, indent=2))
+        else:
+            print(f"Incident {args.id} not found.")
+    elif args.command == "update":
+        updated = manager.update_incident(
+            args.id,
+            title=args.title,
+            description=args.description,
+            status=args.status,
+            priority=args.priority,
+            assigned_to=args.assigned_to,
+        )
+        if updated:
+            print(f"Incident {args.id} updated.")
+        else:
+            print(f"No updates applied to incident {args.id}.")
+    elif args.command == "list":
+        incidents = manager.list_incidents(size=args.number)
+        for inc in incidents:
+            print(json.dumps(inc, indent=2))
+    else:
+        print("No command specified. Use -h for help.")
 
 if __name__ == "__main__":
     main()

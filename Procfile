@@ -1,3 +1,3 @@
 web: mkdir -p /var/pids && exec gunicorn app:application \
-    --bind 0.0.0.0:$PORT \
+    --bind 0.0.0.0:5000 \
     --pid /var/pids/web.pid

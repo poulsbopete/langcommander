@@ -15,13 +15,17 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
 3. Create a `.env` file with the following variables:
    ```env
    # Either your Elastic Cloud ID (recommended) or the full HTTPS URL of your Elasticsearch endpoint
-   ELASTICSEARCH_CLOUD_ID=https://your-domain.es.us-east-1.aws.elastic.cloud:443
-   ELASTICSEARCH_API_KEY=your_api_key
+# ELASTICSEARCH_CLOUD_ID: your Elastic Cloud ID or full Elasticsearch URL
+ELASTICSEARCH_CLOUD_ID=<your_elasticsearch_cloud_id_or_url>
+# ELASTICSEARCH_API_KEY: your Elasticsearch API key
+ELASTICSEARCH_API_KEY=<your_api_key>
    # (Optional) Elasticsearch index name for incidents (default: 'incidents')
    ELASTICSEARCH_INDEX=incidents
-   # OpenTelemetry OTLP exporter configuration
-   OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-demo-a5630c.apm.us-east-1.aws.elastic.cloud:443
-   OTEL_EXPORTER_OTLP_HEADERS=Authorization=ApiKey UjYyUWM1WUJXM0ZuaU1RdFFKa3Q6VzNBc29PZ0g2RXJqYmdXYWstMnBrUQ==
+# OpenTelemetry OTLP exporter configuration (optional)
+# OTLP endpoint (e.g. your APM OTLP HTTP endpoint)
+OTEL_EXPORTER_OTLP_ENDPOINT=<your_otlp_exporter_endpoint>
+# OTLP headers, e.g. "Authorization=ApiKey <your_api_key>"
+OTEL_EXPORTER_OTLP_HEADERS=<your_otlp_exporter_headers>
    # (Optional) Service name for OpenTelemetry (default: 'langcommander')
    OTEL_SERVICE_NAME=langcommander
    ```

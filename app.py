@@ -1,5 +1,8 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash
+from werkzeug.middleware.proxy_fix import ProxyFix
+import json
+import uuid
 import telemetry
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
@@ -12,8 +15,17 @@ load_dotenv()
 app = Flask(__name__)
 # Make WSGI entrypoint for Elastic Beanstalk
 application = app
+# Trust proxy headers for correct URL scheme (X-Forwarded-Proto)
+application.wsgi_app = ProxyFix(application.wsgi_app, x_proto=1, x_host=1)
 # Instrument Flask app for tracing
 telemetry.instrument_app(app)
+
+# Enforce HTTPS: redirect HTTP to HTTPS in non-development environments
+@app.before_request
+def enforce_https():
+    if not request.is_secure and os.getenv("FLASK_ENV", "").lower() != "development":
+        secure_url = request.url.replace("http://", "https://", 1)
+        return redirect(secure_url, code=301)
 # Secret key for session management (flash messages)
 app.secret_key = os.getenv("SECRET_KEY", "devkey")
 
@@ -101,6 +113,40 @@ def edit_incident(incident_id):
         return redirect(url_for("view_incident", incident_id=incident_id))
 
     return render_template("incident_form.html", incident=inc, form_action=url_for("edit_incident", incident_id=incident_id))
+
+@app.route("/alerts", methods=["POST"])
+def alerts_webhook():
+    """Receive Elastic alert webhooks and create/update incidents."""
+    payload = request.get_json(silent=True)
+    if not payload:
+        return "Invalid JSON payload", 400
+    # Extract rule info or generate UUID
+    rule = payload.get("rule", {})
+    rule_id = rule.get("id") or str(uuid.uuid4())
+    incident_id = f"alert-{rule_id}"
+    title = rule.get("name", incident_id)
+    description = json.dumps(payload)
+    priority = rule.get("severity", "High")
+    try:
+        existing = manager.get_incident(incident_id)
+        if existing:
+            manager.update_incident(
+                incident_id,
+                description=description,
+                status="Triggered",
+                priority=priority,
+            )
+        else:
+            manager.create_incident(
+                incident_id,
+                title,
+                description,
+                priority,
+            )
+        return "", 204
+    except Exception as e:
+        app.logger.error(f"Error handling alert webhook: {e}", exc_info=True)
+        return "Internal error", 500
 
 if __name__ == "__main__":
     # Allow overriding host and port via environment variables

@@ -1,4 +1,5 @@
 import os
+import openai
 import telemetry
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
@@ -124,6 +125,25 @@ class IncidentManager:
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
         }
+        # compute embedding for semantic search if OpenAI key is provided
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            openai.api_key = api_key
+            model = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
+            try:
+                if hasattr(openai, 'embeddings') and hasattr(openai.embeddings, 'create'):
+                    emb_resp = openai.embeddings.create(model=model, input=description)
+                else:
+                    emb_resp = openai.Embedding.create(model=model, input=description)
+                # extract embedding vector
+                if hasattr(emb_resp, 'data'):
+                    vec = emb_resp.data[0].embedding
+                else:
+                    vec = emb_resp['data'][0]['embedding']
+                props['embedding'] = vec
+            except Exception:
+                pass
+        # index node with embedding vector
         self.graph.add_node(incident_id, props)
 
     def get_incident(self, incident_id):
@@ -137,6 +157,25 @@ class IncidentManager:
         for field, value in [("title", title), ("description", description), ("status", status), ("priority", priority), ("assigned_to", assigned_to)]:
             if value is not None:
                 fields[field] = value
+        # if description changed, recompute embedding vector
+        if "description" in fields:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if api_key:
+                openai.api_key = api_key
+                model = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
+                try:
+                    if hasattr(openai, 'embeddings') and hasattr(openai.embeddings, 'create'):
+                        emb_resp = openai.embeddings.create(model=model, input=fields["description"])
+                    else:
+                        emb_resp = openai.Embedding.create(model=model, input=fields["description"])
+                    # extract embedding vector
+                    if hasattr(emb_resp, 'data'):
+                        vec = emb_resp.data[0].embedding
+                    else:
+                        vec = emb_resp['data'][0]['embedding']
+                    fields['embedding'] = vec
+                except Exception:
+                    pass
         if not fields:
             return False
         fields["updated_at"] = datetime.utcnow().isoformat()

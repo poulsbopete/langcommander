@@ -13,21 +13,14 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    pip install -r requirements.txt
    ```
 3. Create a `.env` file with the following variables:
-   ```env
-   # Either your Elastic Cloud ID (recommended) or the full HTTPS URL of your Elasticsearch endpoint
-# ELASTICSEARCH_CLOUD_ID: your Elastic Cloud ID or full Elasticsearch URL
-ELASTICSEARCH_CLOUD_ID=<your_elasticsearch_cloud_id_or_url>
-# ELASTICSEARCH_API_KEY: your Elasticsearch API key
-ELASTICSEARCH_API_KEY=<your_api_key>
-   # (Optional) Elasticsearch index name for incidents (default: 'incidents')
-   ELASTICSEARCH_INDEX=incidents
-# OpenTelemetry OTLP exporter configuration (optional)
-# OTLP endpoint (e.g. your APM OTLP HTTP endpoint)
-OTEL_EXPORTER_OTLP_ENDPOINT=<your_otlp_exporter_endpoint>
-# OTLP headers, e.g. "Authorization=ApiKey <your_api_key>"
-OTEL_EXPORTER_OTLP_HEADERS=<your_otlp_exporter_headers>
-   # (Optional) Service name for OpenTelemetry (default: 'langcommander')
-   OTEL_SERVICE_NAME=langcommander
+   ```
+ELASTICSEARCH_CLOUD_ID=Elastic serverless URL
+ELASTICSEARCH_API_KEY=Elastic API Key
+ELASTICSEARCH_INDEX=your index
+OTEL_EXPORTER_OTLP_ENDPOINT=Elastic O11Y Serverless URL
+OTEL_EXPORTER_OTLP_HEADERS=ApiKey ...
+OTEL_CONSOLE_EXPORTER=false
+OTEL_DEBUG=false
    ```
 4. Run the CLI:
    ```bash

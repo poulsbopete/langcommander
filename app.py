@@ -60,8 +60,19 @@ def mcp_search():
     # choose embedding model (override via payload or env)
     model = payload.get("model") or os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
     try:
-        emb_resp = openai.Embedding.create(model=model, input=query_text)
-        vector = emb_resp["data"][0]["embedding"]
+        # Create embedding using OpenAI client: new SDK (v1.x) or legacy (v0.x)
+        if hasattr(openai, 'embeddings') and hasattr(openai.embeddings, 'create'):
+            emb_resp = openai.embeddings.create(model=model, input=query_text)
+        else:
+            emb_resp = openai.Embedding.create(model=model, input=query_text)
+        # Extract embedding vector from response (support new and legacy SDKs)
+        if hasattr(emb_resp, 'data'):
+            # new SDK: emb_resp.data is a list of objects with .embedding
+            first_item = emb_resp.data[0]
+            vector = first_item.embedding if hasattr(first_item, 'embedding') else first_item['embedding']
+        else:
+            # legacy SDK: dict-like response
+            vector = emb_resp["data"][0]["embedding"]
     except Exception as e:
         app.logger.error(f"Embedding error: {e}")
         return jsonify({"error": "Embedding failed"}), 500

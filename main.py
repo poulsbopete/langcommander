@@ -16,24 +16,36 @@ class ElasticsearchGraph:
     def _create_indices(self):
         """
         Create node and edge indices. For the node index, include a dense_vector field for semantic search embeddings.
+        If the node index already exists but lacks the embedding field, update its mapping.
         """
-        # dimensionality for embedding vectors (e.g. OpenAI ada-002 embeddings = 1536)
         dims = int(os.getenv("EMBEDDING_DIMS", "1536"))
-        for index in [self.node_index, self.edge_index]:
-            if not self.es.indices.exists(index=index):
-                if index == self.node_index:
-                    # create node index with embedding mapping
-                    mapping = {
-                        "mappings": {
-                            "properties": {
-                                # existing fields will be dynamic, add embedding for semantic search
-                                "embedding": {"type": "dense_vector", "dims": dims}
-                            }
-                        }
+        # Ensure node_index exists and has embedding mapping
+        if not self.es.indices.exists(index=self.node_index):
+            # create node index with embedding mapping
+            mapping = {
+                "mappings": {
+                    "properties": {
+                        "embedding": {"type": "dense_vector", "dims": dims}
                     }
-                    self.es.indices.create(index=index, body=mapping)
-                else:
-                    self.es.indices.create(index=index)
+                }
+            }
+            self.es.indices.create(index=self.node_index, body=mapping)
+        else:
+            # node index exists: ensure embedding field is present
+            try:
+                current = self.es.indices.get_mapping(index=self.node_index)
+                props = current.get(self.node_index, {}).get("mappings", {}).get("properties", {})
+                if "embedding" not in props:
+                    # add dense_vector mapping for embeddings
+                    self.es.indices.put_mapping(
+                        index=self.node_index,
+                        body={"properties": {"embedding": {"type": "dense_vector", "dims": dims}}}
+                    )
+            except Exception:
+                pass
+        # Ensure edge_index exists (no special mapping)
+        if not self.es.indices.exists(index=self.edge_index):
+            self.es.indices.create(index=self.edge_index)
 
     def add_node(self, node_id, properties):
         body = properties.copy()
@@ -77,18 +89,23 @@ class ElasticsearchGraph:
         """
         Perform a kNN search on the embedding vector field.
         """
+        # Perform semantic search via script_score using cosine similarity
+        # Filter to incident nodes and rank by similarity to the query vector
         body = {
             "size": k,
             "query": {
-                "knn": {
-                    "embedding": {
-                        "vector": vector,
-                        "k": k
+                "script_score": {
+                    "query": {"term": {"type.keyword": {"value": "incident"}}},
+                    "script": {
+                        # cosineSimilarity returns [-1,1]; shift to positive
+                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                        "params": {"query_vector": vector}
                     }
                 }
             }
         }
         resp = self.es.search(index=self.node_index, body=body)
+        # Extract source documents from hits
         return [hit.get("_source", {}) for hit in resp.get("hits", {}).get("hits", [])]
 
 class IncidentManager:

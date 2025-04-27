@@ -19,6 +19,11 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    ELASTICSEARCH_API_KEY=your_api_key
    # (Optional) Elasticsearch index name for incidents (default: 'incidents')
    ELASTICSEARCH_INDEX=incidents
+   # OpenTelemetry OTLP exporter configuration
+   OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-demo-a5630c.apm.us-east-1.aws.elastic.cloud:443
+   OTEL_EXPORTER_OTLP_HEADERS=Authorization=ApiKey UjYyUWM1WUJXM0ZuaU1RdFFKa3Q6VzNBc29PZ0g2RXJqYmdXYWstMnBrUQ==
+   # (Optional) Service name for OpenTelemetry (default: 'langcommander')
+   OTEL_SERVICE_NAME=langcommander
    ```
 4. Run the CLI:
    ```bash
@@ -54,6 +59,13 @@ In addition to the CLI, you can run a Flask-based web UI to manage incidents via
    ```
 
 2. Ensure your `.env` is populated as described above.
+   (You can also add debug flags:)
+   ```ini
+   # Print spans to console
+   OTEL_CONSOLE_EXPORTER=true
+   # Enable debug-level logging for OpenTelemetry
+   OTEL_DEBUG=true
+   ```
 
 3. Start the Flask app:
    ```bash

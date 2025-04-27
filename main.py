@@ -1,4 +1,5 @@
 import os
+import telemetry
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
 import argparse
@@ -164,6 +165,9 @@ def main():
     except Exception as e:
         print(f"Unexpected error creating Elasticsearch client: {e}")
         return
+
+    # Instrument Elasticsearch client with OpenTelemetry
+    telemetry.instrument_es()
 
     # Determine Elasticsearch index for incidents
     incident_index = os.getenv("ELASTICSEARCH_INDEX", "incidents")

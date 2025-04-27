@@ -1,3 +1,8 @@
 elasticsearch>=8.8.2
 python-dotenv>=0.21.0
 Flask>=2.2.5
+opentelemetry-api>=1.22.0
+opentelemetry-sdk>=1.22.0
+opentelemetry-exporter-otlp>=1.22.0
+opentelemetry-instrumentation-flask>=0.40b0
+opentelemetry-instrumentation-elasticsearch>=0.40b0

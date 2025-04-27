@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash
+import telemetry
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
 from main import ElasticsearchGraph, IncidentManager
@@ -7,7 +8,10 @@ from main import ElasticsearchGraph, IncidentManager
 # Load environment variables
 load_dotenv()
 
+# Initialize Flask application
 app = Flask(__name__)
+# Instrument Flask app for tracing
+telemetry.instrument_app(app)
 # Secret key for session management (flash messages)
 app.secret_key = os.getenv("SECRET_KEY", "devkey")
 
@@ -18,10 +22,14 @@ if not cloud_id or not api_key:
     raise RuntimeError("Please set ELASTICSEARCH_CLOUD_ID and ELASTICSEARCH_API_KEY in .env")
 
 # Initialize Elasticsearch client (support URL or Cloud ID)
+# Initialize Elasticsearch client (support URL or Cloud ID)
 if cloud_id.startswith("http://") or cloud_id.startswith("https://"):
     es = Elasticsearch(hosts=[cloud_id], api_key=api_key)
 else:
     es = Elasticsearch(cloud_id=cloud_id, api_key=api_key)
+
+# Instrument Elasticsearch client with OpenTelemetry tracing
+telemetry.instrument_es()
 
 ## Initialize graph and incident manager
 # Use a dedicated index for incidents (default: 'incidents')

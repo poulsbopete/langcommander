@@ -14,9 +14,26 @@ class ElasticsearchGraph:
         self._create_indices()
 
     def _create_indices(self):
+        """
+        Create node and edge indices. For the node index, include a dense_vector field for semantic search embeddings.
+        """
+        # dimensionality for embedding vectors (e.g. OpenAI ada-002 embeddings = 1536)
+        dims = int(os.getenv("EMBEDDING_DIMS", "1536"))
         for index in [self.node_index, self.edge_index]:
             if not self.es.indices.exists(index=index):
-                self.es.indices.create(index=index)
+                if index == self.node_index:
+                    # create node index with embedding mapping
+                    mapping = {
+                        "mappings": {
+                            "properties": {
+                                # existing fields will be dynamic, add embedding for semantic search
+                                "embedding": {"type": "dense_vector", "dims": dims}
+                            }
+                        }
+                    }
+                    self.es.indices.create(index=index, body=mapping)
+                else:
+                    self.es.indices.create(index=index)
 
     def add_node(self, node_id, properties):
         body = properties.copy()
@@ -55,6 +72,24 @@ class ElasticsearchGraph:
         q = query if query is not None else {"match_all": {}}
         resp = self.es.search(index=self.node_index, query=q, size=size)
         return [hit["_source"] for hit in resp.get("hits", {}).get("hits", [])]
+    
+    def search_by_vector(self, vector, k=10):
+        """
+        Perform a kNN search on the embedding vector field.
+        """
+        body = {
+            "size": k,
+            "query": {
+                "knn": {
+                    "embedding": {
+                        "vector": vector,
+                        "k": k
+                    }
+                }
+            }
+        }
+        resp = self.es.search(index=self.node_index, body=body)
+        return [hit.get("_source", {}) for hit in resp.get("hits", {}).get("hits", [])]
 
 class IncidentManager:
     """Manager for handling incident lifecycle using ElasticsearchGraph."""
@@ -95,6 +130,12 @@ class IncidentManager:
         # List all incidents ordered by created_at (not implemented sort yet)
         query = {"term": {"type": {"value": "incident"}}}
         return self.graph.search_nodes(query=query, size=size)
+    
+    def search_semantic(self, vector, k=10):
+        """
+        Semantic search for incidents using a vector via kNN.
+        """
+        return self.graph.search_by_vector(vector, k)
 
 def _parse_args():
     parser = argparse.ArgumentParser(prog="incident_manager", description="Incident management CLI")

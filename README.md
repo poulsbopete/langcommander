@@ -13,15 +13,16 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    pip install -r requirements.txt
    ```
 3. Create a `.env` file with the following variables:
-   ```
-ELASTICSEARCH_CLOUD_ID=Elastic serverless URL
-ELASTICSEARCH_API_KEY=Elastic API Key
-ELASTICSEARCH_INDEX=your index
-OTEL_EXPORTER_OTLP_ENDPOINT=Elastic O11Y Serverless URL
-OTEL_EXPORTER_OTLP_HEADERS=ApiKey ...
-OTEL_CONSOLE_EXPORTER=false
-OTEL_DEBUG=false
-   ```
+   ```env
+       ELASTICSEARCH_CLOUD_ID=Elastic serverless URL
+       ELASTICSEARCH_API_KEY=Elastic API Key
+       ELASTICSEARCH_INDEX=your index
+       OTEL_EXPORTER_OTLP_ENDPOINT=Elastic O11Y Serverless URL
+       OTEL_EXPORTER_OTLP_HEADERS=ApiKey ...
+       OTEL_CONSOLE_EXPORTER=falseest-2.elasticbeanstalk.com/
+       OTEL_DEBUG=false
+  ```
+
 4. Run the CLI:
    ```bash
    python main.py [command] [options]
@@ -174,5 +175,40 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"rule":{"id":"123","name":"Test Alert","severity":"High"},"context":{}}' \
   https://<YOUR_APP_DOMAIN>/alerts -v
+```
+  
+## Semantic Search (MCP)
+
+This application now supports semantic search over incidents via a Model Context Protocol (MCP) endpoint. It uses OpenAI embeddings and Elasticsearch k-NN vector search.
+
+### Requirements
+- Elasticsearch 8.x with Vector Search enabled
+- OpenAI API Key (set `OPENAI_API_KEY` in your `.env`)
+- (Optional) Override embedding model with `EMBEDDING_MODEL` (default: `text-embedding-ada-002`)
+- (Optional) Override embedding dimensions with `EMBEDDING_DIMS` (default: `1536`)
+
+### Endpoint
+POST `/mcp`
+
+Request JSON fields:
+- `query` (or `input`): the text to semantic-search
+- `model`: override the embedding model (optional)
+- `k`: number of top results to return (optional, default: 10)
+
+Response JSON:
+```json
+{
+  "results": [
+    { /* incident document */ },
+    ...
+  ]
+}
+```
+
+### Example usage
+```bash
+curl -X POST http://localhost:5000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"query":"database outage","k":5}'
 ```
 On success, the server responds with HTTP `204 No Content` and the incident is created/updated.

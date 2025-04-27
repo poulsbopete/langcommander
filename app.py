@@ -1,14 +1,17 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import json
 import uuid
 import telemetry
 from dotenv import load_dotenv
 from elasticsearch import Elasticsearch
+import openai
 from main import ElasticsearchGraph, IncidentManager
 
 # Load environment variables
 load_dotenv()
+# Configure OpenAI API key for embeddings (for semantic search / MCP)
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -41,6 +44,39 @@ telemetry.instrument_es()
 incident_index = os.getenv("ELASTICSEARCH_INDEX", "incidents")
 graph = ElasticsearchGraph(es, node_index=incident_index)
 manager = IncidentManager(graph)
+
+# ------------------------------------------------------------------
+# Model Context Protocol (MCP) endpoint for semantic search
+# ------------------------------------------------------------------
+@app.route("/mcp", methods=["POST"])
+def mcp_search():
+    """Perform semantic search over incidents using embeddings (MCP)."""
+    payload = request.get_json(silent=True)
+    if not payload:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+    query_text = payload.get("query") or payload.get("input")
+    if not query_text:
+        return jsonify({"error": "'query' field required"}), 400
+    # choose embedding model (override via payload or env)
+    model = payload.get("model") or os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
+    try:
+        emb_resp = openai.Embedding.create(model=model, input=query_text)
+        vector = emb_resp["data"][0]["embedding"]
+    except Exception as e:
+        app.logger.error(f"Embedding error: {e}")
+        return jsonify({"error": "Embedding failed"}), 500
+    # number of results
+    try:
+        k = int(payload.get("k", 10))
+    except (TypeError, ValueError):
+        k = 10
+    # perform semantic search
+    try:
+        hits = manager.search_semantic(vector, k=k)
+    except Exception as e:
+        app.logger.error(f"Semantic search error: {e}")
+        return jsonify({"error": "Search failed"}), 500
+    return jsonify({"results": hits})
 
 @app.route("/")
 def index():

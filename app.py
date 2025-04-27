@@ -1,6 +1,5 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash
-from werkzeug.middleware.proxy_fix import ProxyFix
 import json
 import uuid
 import telemetry
@@ -15,17 +14,9 @@ load_dotenv()
 app = Flask(__name__)
 # Make WSGI entrypoint for Elastic Beanstalk
 application = app
-# Trust proxy headers for correct URL scheme (X-Forwarded-Proto)
-application.wsgi_app = ProxyFix(application.wsgi_app, x_proto=1, x_host=1)
 # Instrument Flask app for tracing
 telemetry.instrument_app(app)
 
-# Enforce HTTPS: redirect HTTP to HTTPS in non-development environments
-@app.before_request
-def enforce_https():
-    if not request.is_secure and os.getenv("FLASK_ENV", "").lower() != "development":
-        secure_url = request.url.replace("http://", "https://", 1)
-        return redirect(secure_url, code=301)
 # Secret key for session management (flash messages)
 app.secret_key = os.getenv("SECRET_KEY", "devkey")
 

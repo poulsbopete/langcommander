@@ -30,6 +30,9 @@ def _setup_tracer_provider():
     _tracer_provider_initialized = True
     # Read OTLP exporter endpoint and headers from environment
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    # Ensure endpoint URI includes scheme (default to https)
+    if endpoint and not endpoint.lower().startswith(("http://", "https://")):
+        endpoint = f"https://{endpoint}"
     headers_env = os.getenv("OTEL_EXPORTER_OTLP_HEADERS", "")
     service_name = os.getenv("OTEL_SERVICE_NAME", "langcommander")
 

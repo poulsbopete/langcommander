@@ -121,3 +121,61 @@ You can easily host this Flask app using AWS Elastic Beanstalk (Python platform)
    ```
 
 Your app will run with `gunicorn` (configured via the included `Procfile`) and respect the `$PORT` provided by Elastic Beanstalk.
+
+## Elastic Alerts Webhook Integration
+
+This application exposes an HTTP POST endpoint `/alerts` for receiving alert notifications from Elasticsearch (Watcher) or Kibana Alerting Connectors. When an alert fires, the app will create a new incident or update an existing one based on the alert ID.
+
+### 1. Kibana Alerting (Webhook Connector)
+1. In Kibana, navigate to **Stack Management → Rules and Connectors**.
+2. Click **Create connector** and choose **Webhook**.
+   - **Name**: My App Webhook
+   - **URL**: `https://<YOUR_APP_DOMAIN>/alerts`
+   - **Method**: `POST`
+   - **Headers**:
+     - `Content-Type: application/json`
+   - (Optional) Add an `Authorization` header if you secure the endpoint.
+3. In your Alert Rule, add an **Action** and select the webhook connector.
+   - Use a JSON body template such as:
+     ```json
+     {
+       "rule": {
+         "id": "{{rule.id}}",
+         "name": "{{rule.name}}",
+         "severity": "{{rule.tags.severity}}"
+       },
+       "context": {{context}}
+     }
+     ```
+
+### 2. Elasticsearch Watcher (Webhook Action)
+If you use the Elasticsearch Watcher API directly, you can configure a webhook action in your watch:
+```json
+PUT _watcher/watch/incidents_watch
+{
+  "trigger": { "schedule": { "interval": "1h" } },
+  "input": { /* your query or condition */ },
+  "actions": {
+    "notify_webhook": {
+      "webhook": {
+        "method": "POST",
+        "host": ["<YOUR_APP_HOST>"],
+        "port": 443,
+        "path": "/alerts",
+        "body": "{{ctx.payload}}",
+        "headers": { "Content-Type": "application/json" }
+      }
+    }
+  }
+}
+```
+
+### 3. Testing the Webhook
+You can simulate an alert notification with `curl`:
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"rule":{"id":"123","name":"Test Alert","severity":"High"},"context":{}}' \
+  https://<YOUR_APP_DOMAIN>/alerts -v
+```
+On success, the server responds with HTTP `204 No Content` and the incident is created/updated.

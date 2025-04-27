@@ -120,6 +120,137 @@ You can easily host this Flask app using AWS Elastic Beanstalk (Python platform)
 
 Your app will run with `gunicorn` (configured via the included `Procfile`) and respect the `$PORT` provided by Elastic Beanstalk.
 
+## Deploying to AWS Fargate
+
+You can also deploy this application as a containerized service on AWS Fargate. The following steps use the AWS CLI and Docker to build, push, and run your container.
+
+### Prerequisites
+- AWS CLI installed and configured with IAM permissions for ECR and ECS
+- Docker installed locally
+- An AWS account and default region set (`aws configure`)
+- A VPC with public subnets and a security group allowing inbound traffic on your chosen port (e.g., 80 or 5000)
+
+### 1. Create a Dockerfile
+In the project root, add a file named `Dockerfile` with the following contents:
+```dockerfile
+FROM python:3.10-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 5000
+ENV PORT=5000
+CMD ["gunicorn", "app:application", "--bind", "0.0.0.0:5000", "--workers", "2"]
+```
+
+### 2. Build and Push to Amazon ECR
+```bash
+# Replace with your AWS account ID and region
+ACCOUNT_ID=123456789012
+REGION=us-west-2
+REPO_NAME=langcommander
+
+# 2.1 Create ECR repository (if it doesn't exist)
+aws ecr create-repository --repository-name $REPO_NAME --region $REGION || true
+
+# 2.2 Authenticate Docker to ECR
+aws ecr get-login-password --region $REGION \
+  | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+
+# 2.3 Build and tag the Docker image
+docker build -t $REPO_NAME .
+docker tag $REPO_NAME:latest $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:latest
+
+# 2.4 Push the image to ECR
+docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:latest
+```
+
+### 3. Create an ECS Cluster
+```bash
+CLUSTER_NAME=langcommander-cluster
+aws ecs create-cluster --cluster-name $CLUSTER_NAME --region $REGION
+```
+
+### 4. Register a Fargate Task Definition
+Create a file named `ecs-task-def.json`:
+```json
+{
+  "family": "langcommander-task",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "langcommander",
+      "image": "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 5000, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "ELASTICSEARCH_CLOUD_ID", "value": "<your_cloud_id>" },
+        { "name": "ELASTICSEARCH_API_KEY", "value": "<your_api_key>" },
+        { "name": "ELASTICSEARCH_INDEX", "value": "langcommander" },
+        { "name": "OPENAI_API_KEY",       "value": "<your_openai_key>" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/langcommander",
+          "awslogs-region": "$REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+```
+Register the task definition:
+```bash
+aws ecs register-task-definition \
+  --cli-input-json file://ecs-task-def.json \
+  --region $REGION
+```
+
+### 5. Deploy the Fargate Service
+```bash
+SERVICE_NAME=langcommander-service
+SUBNET1=subnet-abc123
+SUBNET2=subnet-def456
+SECURITY_GROUP=sg-0123456789abcdef0
+
+aws ecs create-service \
+  --cluster $CLUSTER_NAME \
+  --service-name $SERVICE_NAME \
+  --task-definition langcommander-task \
+  --desired-count 1 \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNET1,$SUBNET2],securityGroups=[$SECURITY_GROUP],assignPublicIp=ENABLED}" \
+  --region $REGION
+```
+
+### 6. Access Your Service
+The Fargate task will receive a public IP if `assignPublicIp` is enabled. Retrieve it:
+```bash
+TASK_ARN=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name $SERVICE_NAME --region $REGION --query 'taskArns[0]' --output text)
+ENI_ID=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ARN --region $REGION --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+aws ec2 describe-network-interfaces --network-interface-ids $ENI_ID --region $REGION --query 'NetworkInterfaces[0].Association.PublicIp' --output text
+```
+You can then curl your app:
+```bash
+curl http://<PUBLIC_IP>:5000
+```
+
+### Cleanup
+```bash
+aws ecs delete-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force --region $REGION
+aws ecs deregister-task-definition --task-definition langcommander-task --region $REGION
+aws ecs delete-cluster --cluster $CLUSTER_NAME --region $REGION
+aws ecr delete-repository --repository-name $REPO_NAME --force --region $REGION
+```
+
 ## Elastic Alerts Webhook Integration
 
 This application exposes an HTTP POST endpoint `/alerts` for receiving alert notifications from Elasticsearch (Watcher) or Kibana Alerting Connectors. When an alert fires, the app will create a new incident or update an existing one based on the alert ID.

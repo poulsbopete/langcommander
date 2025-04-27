@@ -10,6 +10,8 @@ load_dotenv()
 
 # Initialize Flask application
 app = Flask(__name__)
+# Make WSGI entrypoint for Elastic Beanstalk
+application = app
 # Instrument Flask app for tracing
 telemetry.instrument_app(app)
 # Secret key for session management (flash messages)

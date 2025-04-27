@@ -86,3 +86,38 @@ In addition to the CLI, you can run a Flask-based web UI to manage incidents via
      export FLASK_RUN_PORT=5001
      flask run
      ```
+
+## Deploying to AWS Elastic Beanstalk
+
+You can easily host this Flask app using AWS Elastic Beanstalk (Python platform).
+
+1. Install and configure the EB CLI:
+   ```bash
+   pip install awsebcli
+   eb init -p python-3.10 incident-commander
+   ```
+   When prompted, choose the default region and application name.
+
+2. Create an environment and set environment variables in one step:
+   ```bash
+   eb create prod \
+     --envvars \
+       ELASTICSEARCH_CLOUD_ID=<your_cloud_id>,\
+       ELASTICSEARCH_API_KEY=<your_api_key>,\
+       OTEL_EXPORTER_OTLP_ENDPOINT=<otel_endpoint>,\
+       OTEL_EXPORTER_OTLP_HEADERS=<otel_headers>\
+       OTEL_CONSOLE_EXPORTER=false,\
+       OTEL_DEBUG=false
+   ```
+
+3. Deploy updates:
+   ```bash
+   eb deploy
+   ```
+
+4. Open the live app:
+   ```bash
+   eb open
+   ```
+
+Your app will run with `gunicorn` (configured via the included `Procfile`) and respect the `$PORT` provided by Elastic Beanstalk.

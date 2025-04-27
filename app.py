@@ -186,6 +186,35 @@ def alerts_webhook():
         app.logger.error(f"Error handling alert webhook: {e}", exc_info=True)
         return "Internal error", 500
 
+# ------------------------------------------------------------------
+# AI Chatbot endpoints
+# ------------------------------------------------------------------
+@app.route("/chat", methods=["GET"])
+def chat_page():
+    """Render AI chatbot UI."""
+    return render_template("chat.html")
+
+@app.route("/api/chat", methods=["POST"])
+def chat_api():
+    """Handle AI chat requests."""
+    payload = request.get_json(silent=True)
+    if not payload or "message" not in payload:
+        return jsonify({"error": "Invalid request"}), 400
+    user_message = payload["message"]
+    try:
+        system_prompt = os.getenv("CHAT_SYSTEM_PROMPT", "You are a helpful assistant.")
+        model = os.getenv("CHAT_MODEL", "gpt-3.5-turbo")
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+        resp = openai.ChatCompletion.create(model=model, messages=messages)
+        reply = resp.choices[0].message.content
+    except Exception as e:
+        app.logger.error(f"Chat error: {e}")
+        return jsonify({"error": "Chat failed"}), 500
+    return jsonify({"reply": reply})
+
 if __name__ == "__main__":
     # Allow overriding host and port via environment variables
     port = int(os.getenv("PORT", "5000"))

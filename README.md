@@ -14,14 +14,15 @@ This application demonstrates how to connect to an Elasticsearch Serverless inst
    ```
 3. Create a `.env` file with the following variables:
    ```env
-       ELASTICSEARCH_CLOUD_ID=Elastic serverless URL
-       ELASTICSEARCH_API_KEY=Elastic API Key
-       ELASTICSEARCH_INDEX=your index
-       OTEL_EXPORTER_OTLP_ENDPOINT=Elastic O11Y Serverless URL
-       OTEL_EXPORTER_OTLP_HEADERS=ApiKey ...
-       OTEL_CONSOLE_EXPORTER=falseest-2.elasticbeanstalk.com/
-       OTEL_DEBUG=false
-  ```
+   ELASTICSEARCH_CLOUD_ID=Elastic serverless URL
+   ELASTICSEARCH_API_KEY=Elastic API Key
+   ELASTICSEARCH_INDEX=your index
+   OTEL_EXPORTER_OTLP_ENDPOINT=Elastic O11Y Serverless URL
+   OTEL_EXPORTER_OTLP_HEADERS=ApiKey ...
+   OTEL_CONSOLE_EXPORTER=false
+   OTEL_DEBUG=false
+   OPENAI_API_KEY=Your OpenAI API key
+   ```
 
 4. Run the CLI:
    ```bash
@@ -84,6 +85,7 @@ In addition to the CLI, you can run a Flask-based web UI to manage incidents via
      export FLASK_RUN_PORT=5001
      flask run
      ```
+   - Visit http://localhost:5000/chat to access the AI Chatbot interface.
 
 ## Deploying to AWS Elastic Beanstalk
 

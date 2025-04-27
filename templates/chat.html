@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    AI Chatbot
+  </div>
+  <div id="chat-window" class="card-body" style="height: 400px; overflow-y: auto; background-color: #f8f9fa;">
+    <!-- Chat messages will appear here -->
+  </div>
+  <div class="card-footer">
+    <div class="input-group">
+      <input id="chat-input" type="text" class="form-control" placeholder="Type your message...">
+      <button id="chat-send" class="btn btn-primary">Send</button>
+    </div>
+  </div>
+</div>
+<script>
+  const chatWindow = document.getElementById('chat-window');
+  const chatInput = document.getElementById('chat-input');
+  const chatSend = document.getElementById('chat-send');
+
+  function appendMessage(sender, text) {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('mb-2');
+    if (sender === 'You') {
+      msgDiv.classList.add('text-end');
+    } else {
+      msgDiv.classList.add('text-start');
+    }
+    msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    chatWindow.appendChild(msgDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    appendMessage('You', message);
+    chatInput.value = '';
+    try {
+      const response = await fetch('{{ url_for('chat_api') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      if (!response.ok) {
+        appendMessage('Error', 'Failed to get response');
+        return;
+      }
+      const data = await response.json();
+      appendMessage('AI', data.reply);
+    } catch (err) {
+      appendMessage('Error', 'Network error');
+    }
+  }
+
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+{% endblock %}
